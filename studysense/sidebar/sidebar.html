@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>StudySense</title>
+  <link rel="stylesheet" href="sidebar.css" />
+</head>
+<body>
+  <!-- Collapsed tab (always visible) -->
+  <div id="ss-tab" class="ss-tab" title="Open StudySense">
+    <span class="ss-tab-logo">S</span>
+    <span id="ss-badge" class="ss-badge hidden"></span>
+  </div>
+
+  <!-- Expanded sidebar -->
+  <div id="ss-sidebar" class="ss-sidebar hidden">
+    <!-- Header -->
+    <div class="ss-header">
+      <div class="ss-header-left">
+        <span class="ss-logo-text">StudySense</span>
+        <span id="ss-student-name" class="ss-student-name"></span>
+      </div>
+      <div class="ss-header-right">
+        <button id="ss-expand-btn" class="ss-icon-btn" title="Full screen view">⤢</button>
+        <button id="ss-close-btn" class="ss-icon-btn" title="Close">✕</button>
+      </div>
+    </div>
+
+    <!-- Momentum bar -->
+    <div id="ss-momentum" class="ss-momentum-bar">
+      <span id="ss-momentum-icon" class="ss-momentum-icon">●</span>
+      <span id="ss-momentum-text" class="ss-momentum-text">Loading...</span>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="ss-content">
+
+      <!-- Critical alerts -->
+      <div class="ss-section">
+        <div class="ss-section-title">Critical Alerts</div>
+        <div id="ss-alerts" class="ss-alerts-list">
+          <div class="ss-loading">Analyzing your courses...</div>
+        </div>
+      </div>
+
+      <!-- Behavioral patterns (collapsed by default) -->
+      <div class="ss-section">
+        <button class="ss-section-toggle" data-target="ss-patterns">
+          <span class="ss-section-title">Behavioral Patterns</span>
+          <span class="ss-toggle-icon">▸</span>
+        </button>
+        <div id="ss-patterns" class="ss-collapsible hidden">
+          <div id="ss-patterns-list"></div>
+        </div>
+      </div>
+
+      <!-- Grade recovery -->
+      <div class="ss-section">
+        <button class="ss-section-toggle" data-target="ss-recovery">
+          <span class="ss-section-title">Grade Recovery</span>
+          <span class="ss-toggle-icon">▸</span>
+        </button>
+        <div id="ss-recovery" class="ss-collapsible hidden">
+          <div id="ss-recovery-list"></div>
+        </div>
+      </div>
+
+      <!-- Workload forecast -->
+      <div class="ss-section">
+        <button class="ss-section-toggle" data-target="ss-workload">
+          <span class="ss-section-title">Upcoming Workload</span>
+          <span class="ss-toggle-icon">▸</span>
+        </button>
+        <div id="ss-workload" class="ss-collapsible hidden">
+          <div id="ss-workload-list"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="ss-footer">
+      <span id="ss-last-analyzed">Last analyzed: —</span>
+      <button id="ss-refresh-btn" class="ss-refresh-btn">↻ Refresh</button>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

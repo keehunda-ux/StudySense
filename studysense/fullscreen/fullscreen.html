@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>StudySense — Full View</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07070f;
+      --bg2: #0e0e1c;
+      --bg3: #16162a;
+      --border: #1d1d38;
+      --text: #e8e8f0;
+      --text-dim: #7070a0;
+      --accent: #4ade80;
+      --accent2: #818cf8;
+      --critical: #ef4444;
+      --warning: #f59e0b;
+      --info: #60a5fa;
+      --radius: 10px;
+      --nav-w: 200px;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Left nav ── */
+    .nav {
+      width: var(--nav-w);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0 16px;
+      flex-shrink: 0;
+    }
+    .nav-logo {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent2);
+      padding: 0 20px 24px;
+      letter-spacing: -0.5px;
+    }
+    .nav-item {
+      display: block;
+      padding: 10px 20px;
+      font-size: 13px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      background: none;
+      border-top: none;
+      border-right: none;
+      border-bottom: none;
+      text-align: left;
+      width: 100%;
+    }
+    .nav-item:hover { color: var(--text); background: var(--bg3); }
+    .nav-item.active { color: var(--text); border-left-color: var(--accent2); background: var(--bg3); }
+
+    .nav-student {
+      margin-top: auto;
+      padding: 16px 20px 0;
+      font-size: 11px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Main content ── */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .section-subtitle { font-size: 13px; color: var(--text-dim); margin-bottom: 28px; }
+
+    /* Cards */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 12px;
+    }
+    .card-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .card-body { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+
+    /* Alert cards */
+    .alert-card {
+      border-left: 4px solid var(--border);
+      background: var(--bg2);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+    }
+    .alert-card.critical { border-left-color: var(--critical); }
+    .alert-card.warning { border-left-color: var(--warning); }
+    .alert-card.info { border-left-color: var(--info); }
+    .alert-headline { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .alert-detail { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; line-height: 1.5; }
+    .alert-action { font-size: 12px; color: var(--accent); font-weight: 500; }
+
+    /* Momentum */
+    .momentum-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .momentum-icon { font-size: 24px; }
+    .momentum-icon.gaining { color: var(--accent); }
+    .momentum-icon.holding { color: var(--warning); }
+    .momentum-icon.losing { color: var(--critical); }
+    .momentum-body { flex: 1; }
+    .momentum-label { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .momentum-summary { font-size: 12px; color: var(--text-dim); }
+    .momentum-drivers { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .driver-chip {
+      font-size: 11px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      color: var(--text-dim);
+    }
+
+    /* Feedback patterns */
+    .feedback-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .feedback-theme { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .feedback-meta { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+    .feedback-stat { font-size: 12px; color: var(--text-dim); }
+    .feedback-stat span { color: var(--text); font-weight: 600; }
+    .feedback-quote {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-style: italic;
+      background: var(--bg3);
+      border-left: 3px solid var(--accent2);
+      padding: 8px 12px;
+      border-radius: 0 6px 6px 0;
+      margin-top: 8px;
+    }
+    .recurring-badge {
+      display: inline-block;
+      font-size: 10px;
+      background: rgba(239,68,68,0.12);
+      color: var(--critical);
+      border-radius: 20px;
+      padding: 2px 8px;
+      font-weight: 600;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* Grade recovery */
+    .recovery-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+    }
+    .recovery-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .recovery-course-name { font-size: 15px; font-weight: 700; }
+    .grade-pill {
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .grade-current { color: var(--warning); }
+    .grade-target { color: var(--accent); }
+    .recovery-assignments { margin-top: 10px; }
+    .recovery-assignment-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .recovery-assignment-row:last-child { border-bottom: none; }
+    .needed-score { color: var(--text); font-weight: 600; }
+
+    /* Peak performance */
+    .perf-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .perf-stat {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .perf-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .perf-value { font-size: 20px; font-weight: 700; color: var(--accent); }
+    .perf-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    /* Workload forecast */
+    .week-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 12px;
+    }
+    .week-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .week-label { font-size: 14px; font-weight: 600; }
+    .risk-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .risk-pill.high { background: rgba(239,68,68,0.15); color: var(--critical); }
+    .risk-pill.medium { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .risk-pill.low { background: rgba(74,222,128,0.15); color: var(--accent); }
+    .week-assignments { font-size: 12px; color: var(--text-dim); line-height: 1.8; margin-top: 6px; }
+
+    .empty-state { font-size: 13px; color: var(--text-dim); padding: 20px 0; font-style: italic; }
+    .loading { text-align: center; color: var(--text-dim); padding: 60px 0; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">StudySense</div>
+  <button class="nav-item active" data-section="overview">Overview</button>
+  <button class="nav-item" data-section="alerts">Alerts</button>
+  <button class="nav-item" data-section="feedback">Feedback Patterns</button>
+  <button class="nav-item" data-section="behavioral">Behavioral Analysis</button>
+  <button class="nav-item" data-section="recovery">Grade Recovery</button>
+  <button class="nav-item" data-section="workload">Workload Forecast</button>
+  <div class="nav-student" id="nav-student"></div>
+</nav>
+
+<main>
+
+  <!-- Overview -->
+  <div id="section-overview" class="section active">
+    <h1>Overview</h1>
+    <div class="section-subtitle" id="overview-subtitle">Loading analysis...</div>
+    <div id="momentum-block"></div>
+    <div id="overview-alerts"></div>
+  </div>
+
+  <!-- Alerts -->
+  <div id="section-alerts" class="section">
+    <h1>All Alerts</h1>
+    <div class="section-subtitle">Every flag and upcoming deadline</div>
+    <div id="all-alerts-list"></div>
+  </div>
+
+  <!-- Feedback Patterns -->
+  <div id="section-feedback" class="section">
+    <h1>Feedback Patterns</h1>
+    <div class="section-subtitle">Recurring themes from instructor comments across all courses</div>
+    <div id="feedback-list"></div>
+  </div>
+
+  <!-- Behavioral Analysis -->
+  <div id="section-behavioral" class="section">
+    <h1>Behavioral Analysis</h1>
+    <div class="section-subtitle">Submission timing, late patterns, effort vs return</div>
+    <div id="behavioral-list"></div>
+    <div id="peak-performance-block"></div>
+  </div>
+
+  <!-- Grade Recovery -->
+  <div id="section-recovery" class="section">
+    <h1>Grade Recovery</h1>
+    <div class="section-subtitle">Exactly what you need to score on remaining assignments</div>
+    <div id="recovery-list"></div>
+  </div>
+
+  <!-- Workload Forecast -->
+  <div id="section-workload" class="section">
+    <h1>Workload Forecast</h1>
+    <div class="section-subtitle">Next 21 days by week — high-risk clusters flagged</div>
+    <div id="workload-list"></div>
+  </div>
+
+</main>
+
+<script src="fullscreen.js"></script>
+</body>
+</html>
