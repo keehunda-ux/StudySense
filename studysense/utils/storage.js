@@ -7,6 +7,9 @@ const KEYS = {
   ANALYSIS_TS: 'claude_analysis_ts',
   ONBOARDED: 'onboarded',
   STUDENT: 'student_profile',
+  EXCLUDED_COURSES: 'excluded_course_ids',   // string[] of Canvas course IDs
+  COURSE_LIST: 'course_list',                // {id, name, code}[] — full list from last fetch
+  DISMISSED_ALERTS: 'dismissed_alert_headlines', // string[] of dismissed alert headlines
 };
 
 const TTL = {
@@ -61,18 +64,25 @@ async function getAnalysisAge() {
   return Date.now() - ts;
 }
 
-async function getRawAge() {
-  const ts = await get(KEYS.RAW_DATA_TS);
-  if (!ts) return null;
-  return Date.now() - ts;
-}
-
-async function forceGetAnalysis() {
-  return get(KEYS.ANALYSIS);
-}
-
+async function forceGetAnalysis() { return get(KEYS.ANALYSIS); }
 async function setStudent(profile) { return set(KEYS.STUDENT, profile); }
 async function getStudent() { return get(KEYS.STUDENT); }
+
+// ── Course management ──
+async function getExcludedCourses() { return (await get(KEYS.EXCLUDED_COURSES)) || []; }
+async function setExcludedCourses(ids) { return set(KEYS.EXCLUDED_COURSES, ids.map(String)); }
+
+async function getCourseList() { return (await get(KEYS.COURSE_LIST)) || []; }
+async function setCourseList(courses) { return set(KEYS.COURSE_LIST, courses); }
+
+// ── Alert dismissals ──
+async function getDismissedAlerts() { return (await get(KEYS.DISMISSED_ALERTS)) || []; }
+async function addDismissedAlert(headline) {
+  const current = await getDismissedAlerts();
+  if (current.includes(headline)) return;
+  return set(KEYS.DISMISSED_ALERTS, [...current, headline]);
+}
+async function clearDismissedAlerts() { return set(KEYS.DISMISSED_ALERTS, []); }
 
 async function clearAll() {
   return new Promise((resolve) => chrome.storage.local.clear(resolve));
@@ -87,5 +97,8 @@ export {
   setRawData, getRawData,
   setAnalysis, getAnalysis, getAnalysisAge, forceGetAnalysis,
   setStudent, getStudent,
+  getExcludedCourses, setExcludedCourses,
+  getCourseList, setCourseList,
+  getDismissedAlerts, addDismissedAlert, clearDismissedAlerts,
   clearAll,
 };

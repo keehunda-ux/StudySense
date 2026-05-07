@@ -14,6 +14,7 @@
 
   <!-- Expanded sidebar -->
   <div id="ss-sidebar" class="ss-sidebar hidden">
+
     <!-- Header -->
     <div class="ss-header">
       <div class="ss-header-left">
@@ -29,21 +30,39 @@
     <!-- Momentum bar -->
     <div id="ss-momentum" class="ss-momentum-bar">
       <span id="ss-momentum-icon" class="ss-momentum-icon">●</span>
-      <span id="ss-momentum-text" class="ss-momentum-text">Loading...</span>
+      <span id="ss-momentum-text" class="ss-momentum-text">Loading…</span>
+    </div>
+
+    <!-- Filters-changed banner (hidden until exclusions are modified) -->
+    <div id="ss-filter-banner" class="ss-filter-banner hidden">
+      <span>Filters updated</span>
+      <button id="ss-reanalyze-btn" class="ss-reanalyze-btn">⚡ Re-analyze now</button>
     </div>
 
     <!-- Scrollable content -->
     <div class="ss-content">
 
+      <!-- Manage Courses -->
+      <div class="ss-section">
+        <button class="ss-section-toggle" data-target="ss-courses">
+          <span class="ss-section-title">Manage Courses</span>
+          <span class="ss-toggle-icon">▸</span>
+        </button>
+        <div id="ss-courses" class="ss-collapsible hidden">
+          <p class="ss-courses-hint">Toggle off courses that are completed or not relevant. Re-analyze to apply.</p>
+          <div id="ss-courses-list"></div>
+        </div>
+      </div>
+
       <!-- Critical alerts -->
       <div class="ss-section">
         <div class="ss-section-title">Critical Alerts</div>
         <div id="ss-alerts" class="ss-alerts-list">
-          <div class="ss-loading">Analyzing your courses...</div>
+          <div class="ss-loading">Analyzing your courses…</div>
         </div>
       </div>
 
-      <!-- Behavioral patterns (collapsed by default) -->
+      <!-- Behavioral patterns -->
       <div class="ss-section">
         <button class="ss-section-toggle" data-target="ss-patterns">
           <span class="ss-section-title">Behavioral Patterns</span>

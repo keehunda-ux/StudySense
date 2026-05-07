@@ -2,62 +2,95 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 8192;
 
-function buildPrompt(schema) {
-  const { user, courses, assignments, graded_submissions, missing, upcoming } = schema;
+// ── System prompt — built dynamically from the student's course filters ──────
+
+function buildSystemPrompt(allCourses, excludedIds, today) {
+  const excSet = new Set((excludedIds || []).map(String));
+  const active   = allCourses.filter(c => !excSet.has(String(c.id)));
+  const excluded = allCourses.filter(c =>  excSet.has(String(c.id)));
+
+  const activeLine   = active.map(c => `  ✓ ${c.name}`).join('\n') || '  (all courses active)';
+  const excludedLine = excluded.length
+    ? excluded.map(c => `  ✗ ${c.name}`).join('\n')
+    : '  (none)';
+
+  return `You are StudySense, an academic intelligence assistant.
+
+CRITICAL FILTERING INSTRUCTION:
+Only analyze courses marked ACTIVE below. Excluded courses appear in Canvas but belong to a completed block and must be completely ignored — do not mention them in any section of your response.
+
+ACTIVE COURSES — include in all analysis:
+${activeLine}
+
+EXCLUDED / COMPLETED COURSES — ignore entirely:
+${excludedLine}
+
+When analyzing deadline collisions, grade impact, workload forecasting, and behavioral patterns, consider ONLY the active courses listed above.
+
+Today is ${today}.`;
+}
+
+// ── User prompt — data payload sent to Claude ─────────────────────────────────
+
+function buildPrompt(schema, dismissedAlerts) {
+  const { user, courses, graded_submissions, missing, upcoming } = schema;
 
   const today = new Date().toISOString().split('T')[0];
   const in21Days = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   const coursesSummary = courses.map(c =>
-    `- ${c.name} (${c.course_code}): current score ${c.current_score ?? 'N/A'}%, grade ${c.current_grade ?? 'N/A'}`
+    `- ${c.name} (${c.course_code}): score ${c.current_score ?? 'N/A'}%, grade ${c.current_grade ?? 'N/A'}`
   ).join('\n');
 
-  // Cap comments per submission and truncate long text to keep prompt size manageable
-  const gradedData = graded_submissions.slice(0, 120).map(s => ({
-    course: s.course_id,
-    assignment: s.assignment_name,
-    submitted_at: s.submitted_at,
-    due_at: s.due_at,
-    score: s.score,
-    points_possible: s.points_possible,
-    percent: s.percent != null ? +s.percent.toFixed(1) : null,
-    late: s.late,
-    hours_late: s.hours_late,
-    attempt: s.attempt,
-    group: s.assignment_group_name,
-    comments: s.submission_comments
-      .filter(c => c.body && c.body.trim().length > 5)
-      .slice(0, 4)
-      .map(c => ({
-        author: c.author_name,
-        text: c.body.slice(0, 400),
-        date: c.created_at,
-      })),
-  }));
+  // Add recency context and sort newest-first so Claude naturally weights recent work
+  const now = Date.now();
+  const gradedData = graded_submissions
+    .slice(0, 120)
+    .map(s => {
+      const daysAgo = s.submitted_at
+        ? Math.round((now - new Date(s.submitted_at).getTime()) / 86400000)
+        : null;
+      return {
+        course: s.course_id,
+        assignment: s.assignment_name,
+        submitted_at: s.submitted_at,
+        due_at: s.due_at,
+        days_ago: daysAgo,
+        score: s.score,
+        points_possible: s.points_possible,
+        percent: s.percent != null ? +s.percent.toFixed(1) : null,
+        late: s.late,
+        hours_late: s.hours_late,
+        attempt: s.attempt,
+        group: s.assignment_group_name,
+        comments: s.submission_comments
+          .filter(c => c.body && c.body.trim().length > 5)
+          .slice(0, 4)
+          .map(c => ({ author: c.author_name, text: c.body.slice(0, 400), date: c.created_at })),
+      };
+    })
+    .sort((a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999)); // newest first
 
   const missingData = missing.map(m => ({
-    name: m.name,
-    course: m.course_name,
-    due: m.due_at,
-    points: m.points_possible,
+    name: m.name, course: m.course_name, due: m.due_at, points: m.points_possible,
   }));
 
   const upcomingData = upcoming
     .filter(e => e.start_at >= today && e.start_at <= in21Days)
-    .map(e => ({
-      title: e.title,
-      due: e.start_at,
-      points: e.assignment?.points_possible,
-    }));
+    .map(e => ({ title: e.title, due: e.start_at, points: e.assignment?.points_possible }));
 
-  return `You are an academic intelligence engine. Analyze the following Canvas LMS data for a student named ${user.first_name} and return a structured JSON analysis. Be specific, data-driven, and name real courses and assignments. Do not hallucinate.
+  const dismissNote = dismissedAlerts?.length
+    ? `\nDO NOT generate alerts for these previously dismissed items: ${dismissedAlerts.map(h => `"${h}"`).join(', ')}\n`
+    : '';
 
+  return `Analyze the following Canvas LMS data for ${user.first_name} and return a structured JSON analysis. Be specific — use real course names, assignment names, dates, and scores from the data below. Do not hallucinate.
+${dismissNote}
 TODAY: ${today}
 
-COURSES:
+ACTIVE COURSES:
 ${coursesSummary}
 
-GRADED SUBMISSIONS (${gradedData.length} shown):
+GRADED SUBMISSIONS (${gradedData.length} shown, sorted newest first — weight insights toward recent work):
 ${JSON.stringify(gradedData)}
 
 MISSING SUBMISSIONS:
@@ -67,8 +100,7 @@ UPCOMING (next 21 days):
 ${JSON.stringify(upcomingData)}
 
 ---
-
-Return ONLY a valid JSON object. No markdown fences, no explanation text before or after — just the raw JSON object starting with { and ending with }.
+Return ONLY a valid JSON object. No markdown fences, no text before or after — raw JSON starting with { and ending with }.
 
 {
   "student_name": "${user.first_name}",
@@ -83,7 +115,7 @@ Return ONLY a valid JSON object. No markdown fences, no explanation text before 
       "id": "alert_1",
       "type": "missing | deadline | grade_risk | pattern",
       "urgency": "critical | warning | info",
-      "headline": "Specific alert max 12 words",
+      "headline": "Specific alert — max 12 words",
       "detail": "Full explanation with course name, assignment name, points, dates",
       "action": "Specific thing to do right now"
     }
@@ -103,7 +135,7 @@ Return ONLY a valid JSON object. No markdown fences, no explanation text before 
       "frequency": 0,
       "courses_affected": ["course name"],
       "estimated_points_lost": 0,
-      "example_quote": "verbatim instructor comment snippet",
+      "example_quote": "verbatim instructor comment (max 120 chars)",
       "recurring": true
     }
   ],
@@ -139,17 +171,22 @@ Return ONLY a valid JSON object. No markdown fences, no explanation text before 
 }
 
 Rules:
-- critical_alerts: ALL missing submissions = critical. Upcoming high-point deadlines within 7 days = warning. Declining grade trend = warning.
-- behavioral_patterns: derive from submitted_at vs due_at timestamps. Flag if >50% late. Flag recurring feedback.
-- feedback_patterns: read all comment text. Cluster by theme. Quote real instructor text verbatim (max 120 chars).
-- grade_recovery: only mathematically achievable targets. Use ungraded upcoming assignments for remaining points.
-- workload_forecast: group by calendar week. Flag weeks with 3+ assignments or 150+ pts as high.
+- Only analyze active courses from the system prompt. Never mention excluded courses.
+- critical_alerts: ALL missing = critical. Deadlines within 7 days with high points = warning. Declining grade = warning.
+- behavioral_patterns: derive from submitted_at vs due_at. Weight last 30 days heavily.
+- feedback_patterns: read all comment text. Quote verbatim (120 chars max).
+- grade_recovery: mathematically achievable only. Use ungraded upcoming for remaining points.
+- workload_forecast: group by calendar week. 3+ assignments or 150+ pts = high risk.
 - peak_performance: null all fields if fewer than 5 graded submissions.
-- Keep string values concise — headlines under 15 words, details under 50 words.`;
+- Keep string values concise — headlines ≤15 words, details ≤50 words.`;
 }
 
-async function analyzeWithClaude(schema, apiKey) {
-  const prompt = buildPrompt(schema);
+// ── API call ──────────────────────────────────────────────────────────────────
+
+async function analyzeWithClaude(schema, apiKey, { excludedIds = [], dismissedAlerts = [], allCourses = [] } = {}) {
+  const today = new Date().toISOString().split('T')[0];
+  const system = buildSystemPrompt(allCourses, excludedIds, today);
+  const prompt = buildPrompt(schema, dismissedAlerts);
 
   const res = await fetch(CLAUDE_API_URL, {
     method: 'POST',
@@ -162,6 +199,7 @@ async function analyzeWithClaude(schema, apiKey) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
+      system,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
@@ -174,20 +212,19 @@ async function analyzeWithClaude(schema, apiKey) {
   }
 
   const data = await res.json();
-  const stopReason = data.stop_reason;
-  const text = data.content?.[0]?.text || '';
 
-  if (stopReason === 'max_tokens') {
-    throw new Error('Claude response was cut off (max_tokens reached). Try again — if this repeats, the dataset may be too large.');
+  if (data.stop_reason === 'max_tokens') {
+    throw new Error('Claude response was cut off (max_tokens reached). Try again.');
   }
 
+  const text = data.content?.[0]?.text || '';
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error(`Claude did not return valid JSON. Response started with: ${text.slice(0, 100)}`);
+  if (!jsonMatch) throw new Error(`Claude did not return valid JSON. Started with: ${text.slice(0, 100)}`);
 
   try {
     return JSON.parse(jsonMatch[0]);
   } catch (e) {
-    throw new Error(`JSON parse failed at position ${e.message}. Claude response may have been malformed.`);
+    throw new Error(`JSON parse failed: ${e.message}`);
   }
 }
 
