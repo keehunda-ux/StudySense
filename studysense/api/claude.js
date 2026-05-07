@@ -25,7 +25,7 @@ ${activeLine}
 EXCLUDED / COMPLETED COURSES — ignore entirely:
 ${excludedLine}
 
-When analyzing deadline collisions, grade impact, workload forecasting, and behavioral patterns, consider ONLY the active courses listed above.
+When analyzing deadline collisions, grade impact, workload forecasting, and behavioral patterns, consider ONLY the active courses listed above. Never flag a missing assignment, late submission, or upcoming deadline for an excluded course — even if the data contains it.
 
 Today is ${today}.`;
 }
@@ -71,9 +71,19 @@ function buildPrompt(schema, dismissedAlerts) {
     })
     .sort((a, b) => (a.days_ago ?? 999) - (b.days_ago ?? 999)); // newest first
 
-  const missingData = missing.map(m => ({
-    name: m.name, course: m.course_name, due: m.due_at, points: m.points_possible,
-  }));
+  // Guard: only include missing items whose course is actually in the active course list.
+  // This catches anything that slipped through the upstream course_id filter (e.g. nulls,
+  // type mismatches, or exclusions not yet saved) by cross-referencing both ID and name.
+  const activeCourseIds   = new Set(courses.map(c => String(c.id)));
+  const activeCourseNames = new Set(courses.map(c => c.name?.toLowerCase()));
+
+  const missingData = missing
+    .filter(m => {
+      const idMatch   = m.course_id   && activeCourseIds.has(String(m.course_id));
+      const nameMatch = m.course_name && activeCourseNames.has(m.course_name.toLowerCase());
+      return idMatch || nameMatch;
+    })
+    .map(m => ({ name: m.name, course: m.course_name, due: m.due_at, points: m.points_possible }));
 
   const upcomingData = upcoming
     .filter(e => e.start_at >= today && e.start_at <= in21Days)
