@@ -6,6 +6,11 @@ let currentAnalysis = null;
 let isRefreshing = false;
 let filtersChanged = false;
 
+// ── Chat state ────────────────────────────────────────────────────────────────
+
+let chatHistory = []; // { role: 'user'|'assistant', content: string }[]
+let chatBusy = false;
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 function init() {
@@ -14,6 +19,13 @@ function init() {
   $('ss-expand-btn').addEventListener('click', openFullscreen);
   $('ss-refresh-btn').addEventListener('click', triggerRefresh);
   $('ss-reanalyze-btn').addEventListener('click', triggerReanalyze);
+
+  // Chat
+  $('ss-chat-send').addEventListener('click', sendChatMessage);
+  $('ss-chat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+  });
+  $('ss-chat-clear').addEventListener('click', clearChat);
 
   document.querySelectorAll('.ss-section-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -318,6 +330,59 @@ function renderError(msg) {
 function openSidebar()    { $('ss-sidebar').classList.remove('hidden'); $('ss-tab').style.display = 'none'; }
 function closeSidebar()   { $('ss-sidebar').classList.add('hidden');    $('ss-tab').style.display = 'flex'; }
 function openFullscreen() { window.open(chrome.runtime.getURL('fullscreen/fullscreen.html'), '_blank'); }
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+function sendChatMessage() {
+  if (chatBusy) return;
+  const input = $('ss-chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  appendChatBubble('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  chatBusy = true;
+  $('ss-chat-send').disabled = true;
+  const thinkingEl = appendChatBubble('thinking', '…');
+
+  chrome.runtime.sendMessage(
+    { type: 'CHAT', history: chatHistory.slice(-12) },
+    (res) => {
+      chatBusy = false;
+      $('ss-chat-send').disabled = false;
+      thinkingEl.remove();
+
+      if (chrome.runtime.lastError || !res?.ok) {
+        const errMsg = res?.error || chrome.runtime.lastError?.message || 'Something went wrong.';
+        appendChatBubble('error', errMsg);
+        return;
+      }
+      appendChatBubble('assistant', res.reply);
+      chatHistory.push({ role: 'assistant', content: res.reply });
+    }
+  );
+}
+
+function appendChatBubble(role, text) {
+  const history = $('ss-chat-history');
+  // Remove welcome message on first real message
+  const welcome = history.querySelector('.ss-chat-welcome');
+  if (welcome) welcome.remove();
+
+  const el = document.createElement('div');
+  el.className = `ss-chat-msg ${role}`;
+  el.textContent = text;
+  history.appendChild(el);
+  history.scrollTop = history.scrollHeight;
+  return el;
+}
+
+function clearChat() {
+  chatHistory = [];
+  $('ss-chat-history').innerHTML = '<div class="ss-chat-welcome">Ask anything about your courses, grades, or assignments.</div>';
+}
 
 function escHtml(str) {
   if (str == null) return '';

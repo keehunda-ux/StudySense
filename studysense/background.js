@@ -1,5 +1,5 @@
 import { fetchAllData } from './api/canvas.js';
-import { analyzeWithClaude } from './api/claude.js';
+import { analyzeWithClaude, chatWithClaude } from './api/claude.js';
 import { buildSchema } from './utils/parser.js';
 import {
   getCanvasToken, getClaudeKey, isOnboarded,
@@ -74,6 +74,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: err.message }));
     return true;
   }
+
+  // Chat: answer a question using the stored analysis as context
+  if (msg.type === 'CHAT') {
+    handleChat(msg)
+      .then(reply => sendResponse({ ok: true, reply }))
+      .catch(err => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
 });
 
 // ── Core analysis cycle ──────────────────────────────────────────────────────
@@ -121,6 +129,19 @@ async function runAnalysisCycle({ forceCanvasFetch = false } = {}) {
 
   broadcastProgress('done');
   return analysis;
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+async function handleChat({ history }) {
+  const [claudeKey, analysis, courseList, excludedIds] = await Promise.all([
+    getClaudeKey(),
+    forceGetAnalysis(),
+    getCourseList(),
+    getExcludedCourses(),
+  ]);
+  if (!claudeKey) throw new Error('No Claude API key configured.');
+  return chatWithClaude({ history, analysis, courseList, excludedIds, claudeKey });
 }
 
 // ── Filter raw Canvas data by excluded course IDs ────────────────────────────

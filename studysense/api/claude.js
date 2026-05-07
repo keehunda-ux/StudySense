@@ -245,4 +245,61 @@ async function analyzeWithClaude(schema, apiKey, { excludedIds = [], dismissedAl
   }
 }
 
-export { analyzeWithClaude };
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+async function chatWithClaude({ history, analysis, courseList, excludedIds, claudeKey }) {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Build a compact snapshot of the student's current state for context
+  const snapshot = analysis ? [
+    analysis.momentum ? `Momentum: ${analysis.momentum.direction} — ${analysis.momentum.summary}` : null,
+    analysis.critical_alerts?.length
+      ? `Active alerts: ${analysis.critical_alerts.map(a => a.headline).join('; ')}`
+      : null,
+    analysis.grade_recovery?.length
+      ? `Grade recovery targets: ${analysis.grade_recovery.map(r => `${r.course} (${r.current_letter} → ${r.target_grade})`).join(', ')}`
+      : null,
+    analysis.behavioral_patterns?.length
+      ? `Patterns: ${analysis.behavioral_patterns.map(p => p.headline).join('; ')}`
+      : null,
+    analysis.peak_performance?.best_day
+      ? `Peak performance: ${analysis.peak_performance.best_day}, ${analysis.peak_performance.best_time_window}`
+      : null,
+  ].filter(Boolean).join('\n') : 'No analysis data available yet — run a refresh first.';
+
+  const courseContext = buildSystemPrompt(courseList, excludedIds, today);
+
+  const system = `${courseContext}
+
+You are in chat mode. Answer Kee-Vonne's questions about their courses, grades, assignments, and academic progress concisely and directly.
+
+CURRENT ACADEMIC SNAPSHOT:
+${snapshot}
+
+Keep answers short (2–4 sentences unless a longer answer is genuinely needed). Use "you/your". If the answer isn't in your data, say so clearly rather than guessing.`;
+
+  const res = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': claudeKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      system,
+      messages: (history || []).map(h => ({ role: h.role, content: h.content })),
+    }),
+  });
+
+  if (res.status === 401) throw new Error('CLAUDE_UNAUTHORIZED');
+  if (res.status === 429) throw new Error('Rate limited — wait a moment and try again.');
+  if (!res.ok) throw new Error(`Claude API error: ${res.status}`);
+
+  const data = await res.json();
+  return data.content?.[0]?.text?.trim() || 'No response received.';
+}
+
+export { analyzeWithClaude, chatWithClaude };
